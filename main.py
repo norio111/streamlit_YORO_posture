@@ -22,7 +22,7 @@ st.markdown("""
 """)
 
 # タブの作成
-tab1, tab2 = st.tabs(["姿勢推定", "📋READ ME"])
+tab1, tab2 = st.tabs(["姿勢推定", "使い方"])
 
 @st.cache_resource
 def load_model():
@@ -256,10 +256,11 @@ def draw_custom_pose(image, results, thickness, color_bgr):
 def process_image(image, model, confidence, thickness, color_hex):
     """画像の姿勢推定処理"""
     try:
+        # 向きを修正した画像で推論を実行
         img_array = np.array(image)
         color_bgr = hex_to_bgr(color_hex)
         
-        # 姿勢推定実行
+        # 姿勢推定実行（修正された画像で）
         results = model(img_array, conf=confidence)
         
         # カスタム描画
@@ -312,12 +313,16 @@ with tab1:
     )
     
     if uploaded_file is not None:
-        # 画像読み込みと向き修正
-        image = Image.open(uploaded_file)
-        image = fix_image_orientation(image)  # EXIF情報に基づいて自動回転
+        # 画像読み込み
+        original_image = Image.open(uploaded_file)
+        
+        # 一時的にEXIF修正を無効化してテスト
+        # image = fix_image_orientation(original_image)
+        image = original_image
         
         # 画像情報表示
         st.caption(f"画像サイズ: {image.size[0]} × {image.size[1]} px")
+        st.caption("※ 現在EXIF修正を無効化しています")
         
         with st.spinner("AIが姿勢を分析しています..."):
             processed_img, results = process_image(image, model, confidence_threshold, 
@@ -407,9 +412,9 @@ with tab1:
         """)
 
 def readme_tab_components():
-    st.info("このアプリケーションは機械学習モデル**YOLO（You Only Look Once）**を用いて姿勢を推定し、結果を表示します。")
+    st.info("🤖 このアプリケーションは機械学習モデル**YOLO（You Only Look Once）**を用いて姿勢を推定し、結果を表示します。")
     
-    st.subheader("使い方")
+    st.subheader("📋 使い方")
     st.markdown("""
     1. **設定を調整** - サイドバーで線の太さ、色、分析タイプを設定
     2. **画像をアップロード** - 姿勢推定タブで画像をアップロード
