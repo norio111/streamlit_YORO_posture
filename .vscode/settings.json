@@ -1,0 +1,23 @@
+{
+    "python.defaultInterpreterPath": "C:/Users/sindo/anaconda_test/envs/streamlit_yoro/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "python.condaPath": "C:/Users/sindo/anaconda_test/Scripts/conda.exe",
+    "terminal.integrated.defaultProfile.windows": "Anaconda",
+    "terminal.integrated.profiles.windows": {
+        "Anaconda": {
+            "path": "cmd.exe",
+            "args": [
+                "/k", 
+                "C:/Users/sindo/anaconda_test/Scripts/activate.bat",
+                "streamlit_yoro"
+            ]
+        }
+    },
+    "python.formatting.provider": "black",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "files.associations": {
+        "*.py": "python"
+    }
+}
