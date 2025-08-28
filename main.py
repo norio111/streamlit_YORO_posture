@@ -105,8 +105,12 @@ def detect_posture_orientation(keypoints):
         # 幅と高さの比率で判定
         width_to_height_ratio = (shoulder_width + hip_width) / 2 / body_height
         
-        # 閾値で判定（調整可能）
-        if width_to_height_ratio > 0.8:
+        # デバッグ情報
+        print(f"肩幅: {shoulder_width:.1f}, 腰幅: {hip_width:.1f}, 体高: {body_height:.1f}")
+        print(f"幅高比率: {width_to_height_ratio:.3f}")
+        
+        # 閾値を調整（0.8 → 0.6に変更）
+        if width_to_height_ratio > 0.6:
             return "front"  # 正面
         else:
             return "side"   # 横向き
@@ -188,7 +192,15 @@ def analyze_side_posture(keypoints):
         
         # 頭の前後傾斜（耳と鼻の関係）
         if kpts[0][2] > 0.5 and max(kpts[3][2], kpts[4][2]) > 0.5:
-            head_angle = math.degrees(math.atan2(nose[1] - ear[1], nose[0] - ear[0]))
+            # 水平を基準とした角度計算に修正
+            dx = nose[0] - ear[0]
+            dy = nose[1] - ear[1]
+            head_angle = math.degrees(math.atan2(dy, dx))
+            # -90から90度の範囲に正規化
+            if head_angle > 90:
+                head_angle = head_angle - 180
+            elif head_angle < -90:
+                head_angle = head_angle + 180
             results["頭の前後傾斜"] = f"{head_angle:.1f}°"
         
         # 体幹の傾き（肩と腰を結ぶ線の垂直からの角度）
