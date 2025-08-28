@@ -1,7 +1,7 @@
 import streamlit as st
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from ultralytics import YOLO
 import math
 
@@ -15,8 +15,14 @@ st.set_page_config(
 st.title("YOLO姿勢推定アプリ")
 st.markdown("写真をアップロードすると、AIが姿勢を推定します")
 
+# YOLOの簡単な説明
+st.markdown("""
+**YOLO（You Only Look Once）**は、リアルタイム物体検出で世界的に有名な深層学習技術です。  
+このアプリでは、YOLOの姿勢推定版を使用して人体の17個のキーポイントを高精度で検出し、詳細な姿勢分析を行います。
+""")
+
 # タブの作成
-tab1, tab2 = st.tabs(["姿勢推定", "📋使い方"])
+tab1, tab2 = st.tabs(["姿勢推定", "📋READ ME"])
 
 @st.cache_resource
 def load_model():
@@ -27,6 +33,16 @@ def load_model():
     except Exception as e:
         st.error(f"モデル読み込みエラー: {e}")
         return None
+
+def fix_image_orientation(image):
+    """EXIF情報に基づいて画像の向きを自動修正"""
+    try:
+        # PIL.ImageOpsのexif_transposeを使用してEXIF情報に基づいて自動回転
+        corrected_image = ImageOps.exif_transpose(image)
+        return corrected_image
+    except Exception as e:
+        # EXIF情報がない場合やエラーの場合は元の画像を返す
+        return image
 
 def hex_to_bgr(hex_color):
     """HEX色をBGR形式に変換"""
@@ -296,8 +312,9 @@ with tab1:
     )
     
     if uploaded_file is not None:
-        # 画像読み込み
+        # 画像読み込みと向き修正
         image = Image.open(uploaded_file)
+        image = fix_image_orientation(image)  # EXIF情報に基づいて自動回転
         
         # 画像情報表示
         st.caption(f"画像サイズ: {image.size[0]} × {image.size[1]} px")
@@ -379,16 +396,18 @@ with tab1:
     else:
         # 使い方のヒント
         st.info("上のエリアに画像をアップロードして開始してください")
-
-        # YOLOの簡単な説明
-st.markdown("""
-**YOLO（You Only Look Once）**は、リアルタイム物体検出で世界的に有名な深層学習技術です。  
-このアプリでは、YOLOの姿勢推定版を使用して人体の17個のキーポイントを高精度で検出し、詳細な姿勢分析を行います。
-""")
-
         
+        st.subheader("推奨される写真")
+        st.markdown("""
+        - **明るい場所**で撮影された写真
+        - **全身**が写っている写真  
+        - **背景**がシンプルな写真
+        - **正面向き**または**真横向き**の写真
+        - **自然な立ち姿勢**の写真
+        """)
+
 def readme_tab_components():
-    st.info("このアプリケーションは深層学習モデル**YOLO（You Only Look Once）**を用いて姿勢を推定し、結果を表示します。")
+    st.info("このアプリケーションは機械学習モデル**YOLO（You Only Look Once）**を用いて姿勢を推定し、結果を表示します。")
     
     st.subheader("使い方")
     st.markdown("""
