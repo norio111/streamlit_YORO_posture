@@ -15,12 +15,6 @@ st.set_page_config(
 st.title("YOLO姿勢推定アプリ")
 st.markdown("写真をアップロードすると、AIが姿勢を推定します")
 
-# YOLOの簡単な説明
-st.markdown("""
-**YOLO（You Only Look Once）**は、リアルタイム物体検出で世界的に有名な深層学習技術です。  
-このアプリでは、YOLOの姿勢推定版を使用して人体の17個のキーポイントを高精度で検出し、詳細な姿勢分析を行います。
-""")
-
 # タブの作成
 tab1, tab2 = st.tabs(["姿勢推定", "使い方"])
 
@@ -37,10 +31,22 @@ def load_model():
 def fix_image_orientation(image):
     """EXIF情報に基づいて画像の向きを自動修正"""
     try:
+        # 元の画像サイズを記録
+        original_size = image.size
+        
         # PIL.ImageOpsのexif_transposeを使用してEXIF情報に基づいて自動回転
         corrected_image = ImageOps.exif_transpose(image)
-        return corrected_image
+        
+        # 回転が行われたかチェック
+        if corrected_image.size != original_size:
+            print(f"画像を回転しました: {original_size} → {corrected_image.size}")
+            return corrected_image
+        else:
+            print(f"回転は不要でした: {original_size}")
+            return corrected_image
+            
     except Exception as e:
+        print(f"EXIF処理エラー: {e}")
         # EXIF情報がない場合やエラーの場合は元の画像を返す
         return image
 
@@ -64,44 +70,6 @@ def calculate_angle(p1, p2, p3):
     except:
         return None
 
-def detect_posture_orientation(keypoints):
-    """姿勢の向き（正面/横向き）を自動判定"""
-    try:
-        if len(keypoints) == 0:
-            return "unknown"
-        
-        kpts = keypoints[0]
-        
-        # 左右の肩、腰の座標を取得
-        left_shoulder = kpts[5][:2]   # 左肩
-        right_shoulder = kpts[6][:2]  # 右肩
-        left_hip = kpts[11][:2]       # 左腰
-        right_hip = kpts[12][:2]      # 右腰
-        
-        # 信頼度をチェック
-        if (kpts[5][2] < 0.5 or kpts[6][2] < 0.5 or 
-            kpts[11][2] < 0.5 or kpts[12][2] < 0.5):
-            return "unknown"
-        
-        # 肩と腰の幅を計算
-        shoulder_width = abs(left_shoulder[0] - right_shoulder[0])
-        hip_width = abs(left_hip[0] - right_hip[0])
-        
-        # 体の高さを計算
-        body_height = abs((left_shoulder[1] + right_shoulder[1])/2 - (left_hip[1] + right_hip[1])/2)
-        
-        # 幅と高さの比率で判定
-        width_to_height_ratio = (shoulder_width + hip_width) / 2 / body_height
-        
-        # 閾値で判定（調整可能）
-        if width_to_height_ratio > 0.8:
-            return "front"  # 正面
-        else:
-            return "side"   # 横向き
-            
-    except Exception as e:
-        return "unknown"
-
 def analyze_front_posture(keypoints):
     """正面姿勢の分析"""
     try:
@@ -114,6 +82,8 @@ def analyze_front_posture(keypoints):
         right_shoulder = kpts[6][:2]  # 右肩
         left_hip = kpts[11][:2]       # 左腰
         right_hip = kpts[12][:2]      # 右腰
+        left_ankle = kpts[15][:2]     # 左足首
+        right_ankle = kpts[16][:2]    # 右足首
         
         # 重心位置（肩と腰の中点）
         shoulder_center = [(left_shoulder[0] + right_shoulder[0])/2, 
@@ -121,27 +91,52 @@ def analyze_front_posture(keypoints):
         hip_center = [(left_hip[0] + right_hip[0])/2, 
                      (left_hip[1] + right_hip[1])/2]
         
-        center_of_gravity = [(shoulder_center[0] + hip_center[0])/2,
-                           (shoulder_center[1] + hip_center[1])/2]
+        center_of_gravity_x = (shoulder_center[0] + hip_center[0]) / 2
         
-        results["重心位置"] = f"X: {center_of_gravity[0]:.1f}, Y: {center_of_gravity[1]:.1f}"
+        # 両足の中心点を計算（足首の位置から）
+        if kpts[15][2] > 0.5 and kpts[16][2] > 0.5:  # 両足首の信頼度チェック
+            foot_center_x = (left_ankle[0] + right_ankle[0]) / 2
+            foot_width = abs(left_ankle[0] - right_ankle[0])
+            
+            # 重心の左右偏移を計算
+            offset_x = center_of_gravity_x - foot_center_x
+            
+            # 足幅を100%として偏移率を計算
+            if foot_width > 0:
+                offset_percentage = (offset_x / foot_width) * 100
+                
+                if offset_percentage > 0:
+                    direction = "右"
+                elif offset_percentage < 0:
+                    direction = "左"
+                    offset_percentage = abs(offset_percentage)
+                else:
+                    direction = "中央"
+                    
+                results["重心位置"] = f"{direction}に{abs(offset_percentage):.1f}%"
+            else:
+                results["重心位置"] = "計算不可（足幅が検出できません）"
+        else:
+            results["重心位置"] = "計算不可（両足が検出できません）"
         
-        # 頭の傾き（鼻と肩中心の水平からの角度）
+        # 頭の傾き（鼻と肩中心の水平線からの角度を簡潔に）
         if kpts[0][2] > 0.5:  # 鼻の信頼度チェック
-            head_tilt = math.degrees(math.atan2(nose[1] - shoulder_center[1], 
-                                              nose[0] - shoulder_center[0]) - math.pi/2)
+            # 水平に対する頭の傾きを計算
+            dx = nose[0] - shoulder_center[0]
+            head_tilt = math.degrees(math.atan(dx / abs(nose[1] - shoulder_center[1])))
             results["頭の傾き"] = f"{head_tilt:.1f}°"
         
-        # 肩の左右差
-        shoulder_diff = left_shoulder[1] - right_shoulder[1]
-        shoulder_angle = math.degrees(math.atan2(shoulder_diff, 
-                                               right_shoulder[0] - left_shoulder[0]))
-        results["肩の左右差"] = f"{shoulder_angle:.1f}° ({'右下がり' if shoulder_diff > 0 else '左下がり'})"
+        # 肩の傾き（シンプルな高低差ベース）
+        shoulder_diff = left_shoulder[1] - right_shoulder[1]  # Y座標の差
+        shoulder_angle = math.degrees(math.atan(shoulder_diff / abs(left_shoulder[0] - right_shoulder[0])))
+            
+        results["肩の傾き"] = f"{abs(shoulder_angle):.1f}° ({direction})"
         
         # 骨盤の傾き
-        hip_diff = left_hip[1] - right_hip[1]
-        hip_angle = math.degrees(math.atan2(hip_diff, right_hip[0] - left_hip[0]))
-        results["骨盤の傾き"] = f"{hip_angle:.1f}° ({'右下がり' if hip_diff > 0 else '左下がり'})"
+        hip_diff = left_hip[1] - right_hip[1]  # Y座標の差
+        hip_angle = math.degrees(math.atan(hip_diff / abs(left_hip[0] - right_hip[0])))
+            
+        results["骨盤の傾き"] = f"{abs(hip_angle):.1f}° ({direction})"
         
         return results
         
@@ -176,7 +171,15 @@ def analyze_side_posture(keypoints):
         
         # 頭の前後傾斜（耳と鼻の関係）
         if kpts[0][2] > 0.5 and max(kpts[3][2], kpts[4][2]) > 0.5:
-            head_angle = math.degrees(math.atan2(nose[1] - ear[1], nose[0] - ear[0]))
+            # 水平を基準とした角度計算に修正
+            dx = nose[0] - ear[0]
+            dy = nose[1] - ear[1]
+            head_angle = math.degrees(math.atan2(dy, dx))
+            # -90から90度の範囲に正規化
+            if head_angle > 90:
+                head_angle = head_angle - 180
+            elif head_angle < -90:
+                head_angle = head_angle + 180
             results["頭の前後傾斜"] = f"{head_angle:.1f}°"
         
         # 体幹の傾き（肩と腰を結ぶ線の垂直からの角度）
@@ -275,7 +278,12 @@ def process_image(image, model, confidence, thickness, color_hex):
 # タブ1: 姿勢推定
 with tab1:
     # サイドバー設定
-    st.sidebar.title("設定")
+    st.sidebar.title("⚙ 設定")
+
+    posture_type = st.sidebar.selectbox(
+        "姿勢タイプ",
+        ["正面姿勢", "横向き姿勢"]
+    )
 
     # 描画設定
     st.sidebar.subheader("描画設定")
@@ -283,7 +291,6 @@ with tab1:
 
     # 色の選択
     color_options = {
-        "緑": "#00FF00",
         "白": "#FFFFFF", 
         "黒": "#000000",
         "赤": "#FF0000",
@@ -293,14 +300,15 @@ with tab1:
     line_color = color_options[selected_color_name]
 
     # 分析設定
-    st.sidebar.subheader("分析設定")
-    posture_type = st.sidebar.selectbox(
-        "姿勢タイプ",
-        ["自動判定", "正面姿勢", "横向き姿勢"]
-    )
+    st.sidebar.subheader(
+        "分析設定", help="キーポイント検出の信頼度を設定します。値が高いほど確実なポイントのみ表示されます（推奨: 0.5）"
+        )
     
-    confidence_threshold = st.sidebar.slider("信頼度閾値", 0.1, 1.0, 0.5, 0.1)
-
+    confidence_threshold = st.sidebar.slider(
+        "信頼度閾値", 
+        0.1, 1.0, 0.5, 0.1,
+        )
+    
     # メインコンテンツ
     model = load_model()
     if model is None:
@@ -316,13 +324,14 @@ with tab1:
         # 画像読み込み
         original_image = Image.open(uploaded_file)
         
-        # 一時的にEXIF修正を無効化してテスト
-        # image = fix_image_orientation(original_image)
-        image = original_image
+        # EXIF情報に基づいて向き修正を再有効化
+        image = fix_image_orientation(original_image)
         
         # 画像情報表示
-        st.caption(f"画像サイズ: {image.size[0]} × {image.size[1]} px")
-        st.caption("※ 現在EXIF修正を無効化しています")
+        if original_image.size != image.size:
+            st.caption(f"画像を回転しました: {original_image.size} → {image.size}")
+        else:
+            st.caption(f"画像サイズ: {image.size[0]} × {image.size[1]} px")
         
         with st.spinner("AIが姿勢を分析しています..."):
             processed_img, results = process_image(image, model, confidence_threshold, 
@@ -339,13 +348,20 @@ with tab1:
             keypoints_data = results.keypoints.data.cpu().numpy()
             
             if len(keypoints_data) > 0:
+                # デバッグ情報：キーポイントの基本情報を表示
+                kpts = keypoints_data[0]
+                st.caption(f"検出されたキーポイント数: {len(kpts)}")
+                
+                # 主要キーポイントの座標をチェック
+                nose = kpts[0]
+                left_shoulder = kpts[5]
+                right_shoulder = kpts[6]
+                st.caption(f"鼻: ({nose[0]:.1f}, {nose[1]:.1f}, 信頼度: {nose[2]:.2f})")
+                st.caption(f"左肩: ({left_shoulder[0]:.1f}, {left_shoulder[1]:.1f}, 信頼度: {left_shoulder[2]:.2f})")
+                st.caption(f"右肩: ({right_shoulder[0]:.1f}, {right_shoulder[1]:.1f}, 信頼度: {right_shoulder[2]:.2f})")
+                
                 # 姿勢タイプの判定
-                if posture_type == "自動判定":
-                    detected_orientation = detect_posture_orientation(keypoints_data)
-                    orientation_text = {'front': '正面', 'side': '横向き', 'unknown': '不明'}
-                    st.info(f"検出された姿勢: **{orientation_text[detected_orientation]}**")
-                    analysis_type = detected_orientation
-                elif posture_type == "正面姿勢":
+                if posture_type == "正面姿勢":
                     analysis_type = "front"
                 else:
                     analysis_type = "side"
@@ -402,21 +418,18 @@ with tab1:
         # 使い方のヒント
         st.info("上のエリアに画像をアップロードして開始してください")
         
-        st.subheader("推奨される写真")
-        st.markdown("""
-        - **明るい場所**で撮影された写真
-        - **全身**が写っている写真  
-        - **背景**がシンプルな写真
-        - **正面向き**または**真横向き**の写真
-        - **自然な立ち姿勢**の写真
-        """)
+        # YOLOの簡単な説明
+st.markdown("""
+**YOLO（You Only Look Once）**は、リアルタイム物体検出ができる深層学習技術です。  
+このアプリでは、YOLOの姿勢推定版を使用して人体の17個のキーポイントを検出し、姿勢分析を行います。
+""")
 
 def readme_tab_components():
-    st.info("🤖 このアプリケーションは機械学習モデル**YOLO（You Only Look Once）**を用いて姿勢を推定し、結果を表示します。")
+    st.info("このアプリケーションは機械学習モデル**YOLO（You Only Look Once）**を用いて姿勢を推定し、結果を表示します。")
     
-    st.subheader("📋 使い方")
+    st.subheader("✑使い方")
     st.markdown("""
-    1. **設定を調整** - サイドバーで線の太さ、色、分析タイプを設定
+    1. **設定を調整** - サイドバーで姿勢の向き、線の太さ、色を設定
     2. **画像をアップロード** - 姿勢推定タブで画像をアップロード
     3. **結果を確認** - AI分析結果とスケルトン表示を確認
     4. **必要に応じて保存** - スクリーンショット等で結果を保存
@@ -428,7 +441,6 @@ def readme_tab_components():
     st.markdown("""
     - アップロードされた画像は姿勢推定のみに使用され、**サーバーに保存されません**
     - 個人を特定できる情報が含まれる画像のアップロードは避けてください
-    - 処理は全てローカル環境で実行されます
     """)
     
     st.subheader("⚠️ 免責事項")
