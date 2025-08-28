@@ -37,22 +37,10 @@ def load_model():
 def fix_image_orientation(image):
     """EXIF情報に基づいて画像の向きを自動修正"""
     try:
-        # 元の画像サイズを記録
-        original_size = image.size
-        
         # PIL.ImageOpsのexif_transposeを使用してEXIF情報に基づいて自動回転
         corrected_image = ImageOps.exif_transpose(image)
-        
-        # 回転が行われたかチェック
-        if corrected_image.size != original_size:
-            print(f"画像を回転しました: {original_size} → {corrected_image.size}")
-            return corrected_image
-        else:
-            print(f"回転は不要でした: {original_size}")
-            return corrected_image
-            
+        return corrected_image
     except Exception as e:
-        print(f"EXIF処理エラー: {e}")
         # EXIF情報がない場合やエラーの場合は元の画像を返す
         return image
 
@@ -105,12 +93,8 @@ def detect_posture_orientation(keypoints):
         # 幅と高さの比率で判定
         width_to_height_ratio = (shoulder_width + hip_width) / 2 / body_height
         
-        # デバッグ情報
-        print(f"肩幅: {shoulder_width:.1f}, 腰幅: {hip_width:.1f}, 体高: {body_height:.1f}")
-        print(f"幅高比率: {width_to_height_ratio:.3f}")
-        
-        # 閾値を調整（0.8 → 0.6に変更）
-        if width_to_height_ratio > 0.6:
+        # 閾値で判定（調整可能）
+        if width_to_height_ratio > 0.8:
             return "front"  # 正面
         else:
             return "side"   # 横向き
@@ -192,15 +176,7 @@ def analyze_side_posture(keypoints):
         
         # 頭の前後傾斜（耳と鼻の関係）
         if kpts[0][2] > 0.5 and max(kpts[3][2], kpts[4][2]) > 0.5:
-            # 水平を基準とした角度計算に修正
-            dx = nose[0] - ear[0]
-            dy = nose[1] - ear[1]
-            head_angle = math.degrees(math.atan2(dy, dx))
-            # -90から90度の範囲に正規化
-            if head_angle > 90:
-                head_angle = head_angle - 180
-            elif head_angle < -90:
-                head_angle = head_angle + 180
+            head_angle = math.degrees(math.atan2(nose[1] - ear[1], nose[0] - ear[0]))
             results["頭の前後傾斜"] = f"{head_angle:.1f}°"
         
         # 体幹の傾き（肩と腰を結ぶ線の垂直からの角度）
@@ -323,7 +299,7 @@ with tab1:
         ["自動判定", "正面姿勢", "横向き姿勢"]
     )
     
-    confidence_threshold = st.sidebar.slider("信頼度閾値", 0.1, 1.0, 0.3, 0.1)
+    confidence_threshold = st.sidebar.slider("信頼度閾値", 0.1, 1.0, 0.5, 0.1)
 
     # メインコンテンツ
     model = load_model()
@@ -340,14 +316,13 @@ with tab1:
         # 画像読み込み
         original_image = Image.open(uploaded_file)
         
-        # EXIF情報に基づいて向き修正を再有効化
-        image = fix_image_orientation(original_image)
+        # 一時的にEXIF修正を無効化してテスト
+        # image = fix_image_orientation(original_image)
+        image = original_image
         
         # 画像情報表示
-        if original_image.size != image.size:
-            st.caption(f"画像を回転しました: {original_image.size} → {image.size}")
-        else:
-            st.caption(f"画像サイズ: {image.size[0]} × {image.size[1]} px")
+        st.caption(f"画像サイズ: {image.size[0]} × {image.size[1]} px")
+        st.caption("※ 現在EXIF修正を無効化しています")
         
         with st.spinner("AIが姿勢を分析しています..."):
             processed_img, results = process_image(image, model, confidence_threshold, 
@@ -364,18 +339,6 @@ with tab1:
             keypoints_data = results.keypoints.data.cpu().numpy()
             
             if len(keypoints_data) > 0:
-                # デバッグ情報：キーポイントの基本情報を表示
-                kpts = keypoints_data[0]
-                st.caption(f"検出されたキーポイント数: {len(kpts)}")
-                
-                # 主要キーポイントの座標をチェック
-                nose = kpts[0]
-                left_shoulder = kpts[5]
-                right_shoulder = kpts[6]
-                st.caption(f"鼻: ({nose[0]:.1f}, {nose[1]:.1f}, 信頼度: {nose[2]:.2f})")
-                st.caption(f"左肩: ({left_shoulder[0]:.1f}, {left_shoulder[1]:.1f}, 信頼度: {left_shoulder[2]:.2f})")
-                st.caption(f"右肩: ({right_shoulder[0]:.1f}, {right_shoulder[1]:.1f}, 信頼度: {right_shoulder[2]:.2f})")
-                
                 # 姿勢タイプの判定
                 if posture_type == "自動判定":
                     detected_orientation = detect_posture_orientation(keypoints_data)
