@@ -37,10 +37,22 @@ def load_model():
 def fix_image_orientation(image):
     """EXIF情報に基づいて画像の向きを自動修正"""
     try:
+        # 元の画像サイズを記録
+        original_size = image.size
+        
         # PIL.ImageOpsのexif_transposeを使用してEXIF情報に基づいて自動回転
         corrected_image = ImageOps.exif_transpose(image)
-        return corrected_image
+        
+        # 回転が行われたかチェック
+        if corrected_image.size != original_size:
+            print(f"画像を回転しました: {original_size} → {corrected_image.size}")
+            return corrected_image
+        else:
+            print(f"回転は不要でした: {original_size}")
+            return corrected_image
+            
     except Exception as e:
+        print(f"EXIF処理エラー: {e}")
         # EXIF情報がない場合やエラーの場合は元の画像を返す
         return image
 
@@ -299,7 +311,7 @@ with tab1:
         ["自動判定", "正面姿勢", "横向き姿勢"]
     )
     
-    confidence_threshold = st.sidebar.slider("信頼度閾値", 0.1, 1.0, 0.5, 0.1)
+    confidence_threshold = st.sidebar.slider("信頼度閾値", 0.1, 1.0, 0.3, 0.1)
 
     # メインコンテンツ
     model = load_model()
@@ -316,13 +328,14 @@ with tab1:
         # 画像読み込み
         original_image = Image.open(uploaded_file)
         
-        # 一時的にEXIF修正を無効化してテスト
-        # image = fix_image_orientation(original_image)
-        image = original_image
+        # EXIF情報に基づいて向き修正を再有効化
+        image = fix_image_orientation(original_image)
         
         # 画像情報表示
-        st.caption(f"画像サイズ: {image.size[0]} × {image.size[1]} px")
-        st.caption("※ 現在EXIF修正を無効化しています")
+        if original_image.size != image.size:
+            st.caption(f"画像を回転しました: {original_image.size} → {image.size}")
+        else:
+            st.caption(f"画像サイズ: {image.size[0]} × {image.size[1]} px")
         
         with st.spinner("AIが姿勢を分析しています..."):
             processed_img, results = process_image(image, model, confidence_threshold, 
