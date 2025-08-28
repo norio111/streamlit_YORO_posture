@@ -180,7 +180,7 @@ def analyze_side_posture(keypoints):
                 head_angle = head_angle - 180
             elif head_angle < -90:
                 head_angle = head_angle + 180
-            results["頭の前後傾斜"] = f"{head_angle:.1f}°"
+            results["頭の傾き"] = f"{head_angle:.1f}°"
         
         # 体幹の傾き（肩と腰を結ぶ線の垂直からの角度）
         if min(kpts[5][2], kpts[6][2], kpts[11][2], kpts[12][2]) > 0.5:
@@ -206,7 +206,7 @@ def analyze_side_posture(keypoints):
         if (max(kpts[11][2], kpts[12][2]) > 0.5 and 
             max(kpts[13][2], kpts[14][2]) > 0.5):
             pelvic_angle = math.degrees(math.atan2(knee[0] - hip[0], knee[1] - hip[1]))
-            results["骨盤の前後傾"] = f"{pelvic_angle:.1f}°"
+            results["骨盤の傾き"] = f"{pelvic_angle:.1f}°"
         
         return results
         
@@ -349,16 +349,16 @@ with tab1:
             
             if len(keypoints_data) > 0:
                 # デバッグ情報：キーポイントの基本情報を表示
-                kpts = keypoints_data[0]
-                st.caption(f"検出されたキーポイント数: {len(kpts)}")
+                #kpts = keypoints_data[0]
+                #st.caption(f"検出されたキーポイント数: {len(kpts)}")
                 
                 # 主要キーポイントの座標をチェック
-                nose = kpts[0]
-                left_shoulder = kpts[5]
-                right_shoulder = kpts[6]
-                st.caption(f"鼻: ({nose[0]:.1f}, {nose[1]:.1f}, 信頼度: {nose[2]:.2f})")
-                st.caption(f"左肩: ({left_shoulder[0]:.1f}, {left_shoulder[1]:.1f}, 信頼度: {left_shoulder[2]:.2f})")
-                st.caption(f"右肩: ({right_shoulder[0]:.1f}, {right_shoulder[1]:.1f}, 信頼度: {right_shoulder[2]:.2f})")
+                #nose = kpts[0]
+                #left_shoulder = kpts[5]
+                #right_shoulder = kpts[6]
+                #st.caption(f"鼻: ({nose[0]:.1f}, {nose[1]:.1f}, 信頼度: {nose[2]:.2f})")
+                #st.caption(f"左肩: ({left_shoulder[0]:.1f}, {left_shoulder[1]:.1f}, 信頼度: {left_shoulder[2]:.2f})")
+                #st.caption(f"右肩: ({right_shoulder[0]:.1f}, {right_shoulder[1]:.1f}, 信頼度: {right_shoulder[2]:.2f})")
                 
                 # 姿勢タイプの判定
                 if posture_type == "正面姿勢":
@@ -419,15 +419,15 @@ with tab1:
         st.info("上のエリアに画像をアップロードして開始してください")
         
         # YOLOの簡単な説明
-st.markdown("""
-**YOLO（You Only Look Once）**は、リアルタイム物体検出ができる深層学習技術です。  
-このアプリでは、YOLOの姿勢推定版を使用して人体の17個のキーポイントを検出し、姿勢分析を行います。
-""")
+        st.markdown("""
+          **YOLO（You Only Look Once）**は、リアルタイム物体検出ができる深層学習技術です。  
+          このアプリでは、YOLOの姿勢推定版を使用して人体の17個のキーポイントを検出し、姿勢分析を行います。
+        """)
 
 def readme_tab_components():
     st.info("このアプリケーションは機械学習モデル**YOLO（You Only Look Once）**を用いて姿勢を推定し、結果を表示します。")
     
-    st.subheader("✑使い方")
+    st.subheader("【使い方】")
     st.markdown("""
     1. **設定を調整** - サイドバーで姿勢の向き、線の太さ、色を設定
     2. **画像をアップロード** - 姿勢推定タブで画像をアップロード
@@ -437,7 +437,7 @@ def readme_tab_components():
     ※ ブラウザを閉じると結果はクリアされます。
     """)
  
-    st.subheader("🔒 個人情報保護に関する注意事項")
+    st.subheader(" 【個人情報保護に関する注意事項】")
     st.markdown("""
     - アップロードされた画像は姿勢推定のみに使用され、**サーバーに保存されません**
     - 個人を特定できる情報が含まれる画像のアップロードは避けてください
