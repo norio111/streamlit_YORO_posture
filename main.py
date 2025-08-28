@@ -352,6 +352,18 @@ with tab1:
             keypoints_data = results.keypoints.data.cpu().numpy()
             
             if len(keypoints_data) > 0:
+                # デバッグ情報：キーポイントの基本情報を表示
+                kpts = keypoints_data[0]
+                st.caption(f"検出されたキーポイント数: {len(kpts)}")
+                
+                # 主要キーポイントの座標をチェック
+                nose = kpts[0]
+                left_shoulder = kpts[5]
+                right_shoulder = kpts[6]
+                st.caption(f"鼻: ({nose[0]:.1f}, {nose[1]:.1f}, 信頼度: {nose[2]:.2f})")
+                st.caption(f"左肩: ({left_shoulder[0]:.1f}, {left_shoulder[1]:.1f}, 信頼度: {left_shoulder[2]:.2f})")
+                st.caption(f"右肩: ({right_shoulder[0]:.1f}, {right_shoulder[1]:.1f}, 信頼度: {right_shoulder[2]:.2f})")
+                
                 # 姿勢タイプの判定
                 if posture_type == "自動判定":
                     detected_orientation = detect_posture_orientation(keypoints_data)
