@@ -100,21 +100,21 @@ def analyze_front_posture(keypoints):
                 offset_percentage = (abs(offset_x) / foot_width) * 100
                 
                 if offset_x > 0:
-                    direction = "右"  # 患者の右側
+                    direction = "左"  # 患者の右側
                 elif offset_x < 0:
-                    direction = "左"  # 患者の左側
+                    direction = "右"  # 患者の左側
                 else:
                     direction = "中央"
                     
                 results["重心位置"] = f"{direction}{offset_percentage:.1f}%"
         
         # 肩の傾き（患者の左右）
-        shoulder_diff = left_shoulder[1] - right_shoulder[1]
-        shoulder_angle = math.degrees(math.atan(shoulder_diff / abs(left_shoulder[0] - right_shoulder[0])))
+        shoulder_angle = left_shoulder[1] - right_shoulder[1]
+        shoulder_angle = math.degrees(math.atan(shoulder_angle / abs(left_shoulder[0] - right_shoulder[0])))
         
-        if shoulder_diff > 0:
+        if shoulder_angle > 0:
             shoulder_direction = "左"  # 患者の左肩が下
-        elif shoulder_diff < 0:
+        elif shoulder_angle < 0:
             shoulder_direction = "右"  # 患者の右肩が下
         else:
             shoulder_direction = "水平"
@@ -122,12 +122,12 @@ def analyze_front_posture(keypoints):
         results["肩の傾き"] = f"{shoulder_direction}{abs(shoulder_angle):.1f}°"
         
         # 骨盤の傾き（患者の左右）
-        hip_diff = left_hip[1] - right_hip[1]
-        hip_angle = math.degrees(math.atan(hip_diff / abs(left_hip[0] - right_hip[0])))
+        hip_angle = left_hip[1] - right_hip[1]
+        hip_angle = math.degrees(math.atan(hip_angle / abs(left_hip[0] - right_hip[0])))
         
-        if hip_diff > 0:
+        if hip_angle > 0:
             hip_direction = "左"  # 患者の左腰が下
-        elif hip_diff < 0:
+        elif hip_angle < 0:
             hip_direction = "右"  # 患者の右腰が下
         else:
             hip_direction = "水平"
