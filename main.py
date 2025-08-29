@@ -71,77 +71,74 @@ def calculate_angle(p1, p2, p3):
         return None
 
 def analyze_front_posture(keypoints):
-    """正面姿勢の分析"""
+    """正面姿勢の分析（患者の左右で表現）"""
     try:
         kpts = keypoints[0]
         results = {}
         
         # キーポイントのインデックス
-        nose = kpts[0][:2]           # 鼻
-        left_shoulder = kpts[5][:2]   # 左肩
-        right_shoulder = kpts[6][:2]  # 右肩
-        left_hip = kpts[11][:2]       # 左腰
-        right_hip = kpts[12][:2]      # 右腰
-        left_ankle = kpts[15][:2]     # 左足首
-        right_ankle = kpts[16][:2]    # 右足首
+        nose = kpts[0][:2]
+        left_shoulder = kpts[5][:2]   # 患者の左肩
+        right_shoulder = kpts[6][:2]  # 患者の右肩
+        left_hip = kpts[11][:2]       # 患者の左腰
+        right_hip = kpts[12][:2]      # 患者の右腰
+        left_ankle = kpts[15][:2]     # 患者の左足首
+        right_ankle = kpts[16][:2]    # 患者の右足首
         
-        # 重心位置（肩と腰の中点）
-        shoulder_center = [(left_shoulder[0] + right_shoulder[0])/2, 
-                          (left_shoulder[1] + right_shoulder[1])/2]
-        hip_center = [(left_hip[0] + right_hip[0])/2, 
-                     (left_hip[1] + right_hip[1])/2]
+        # 重心位置（腰部の中心）
+        hip_center = [(left_hip[0] + right_hip[0])/2,
+                      (left_hip[1] + right_hip[1])/2]
         
-        center_of_gravity_x = (shoulder_center[0] + hip_center[0]) / 2
-        
-        # 両足の中心点を計算（足首の位置から）
-        if kpts[15][2] > 0.5 and kpts[16][2] > 0.5:  # 両足首の信頼度チェック
+        # 重心の左右偏移を計算
+        if kpts[15][2] > 0.5 and kpts[16][2] > 0.5:
             foot_center_x = (left_ankle[0] + right_ankle[0]) / 2
             foot_width = abs(left_ankle[0] - right_ankle[0])
             
-            # 重心の左右偏移を計算
-            offset_x = center_of_gravity_x - foot_center_x
+            offset_x = hip_center[0] - foot_center_x
             
-            # 足幅を100%として偏移率を計算
             if foot_width > 0:
-                offset_percentage = (offset_x / foot_width) * 100
+                offset_percentage = (abs(offset_x) / foot_width) * 100
                 
-                if offset_percentage > 0:
-                    direction = "右"
-                elif offset_percentage < 0:
-                    direction = "左"
-                    offset_percentage = abs(offset_percentage)
+                if offset_x > 0:
+                    direction = "右"  # 患者の右側
+                elif offset_x < 0:
+                    direction = "左"  # 患者の左側
                 else:
                     direction = "中央"
                     
-                results["重心位置"] = f"{direction}に{abs(offset_percentage):.1f}%"
-            else:
-                results["重心位置"] = "計算不可（足幅が検出できません）"
-        else:
-            results["重心位置"] = "計算不可（両足が検出できません）"
+                results["重心位置"] = f"{direction}{offset_percentage:.1f}%"
         
-        # 頭の傾き（鼻と肩中心の水平線からの角度を簡潔に）
-        if kpts[0][2] > 0.5:  # 鼻の信頼度チェック
-            # 水平に対する頭の傾きを計算
-            dx = nose[0] - shoulder_center[0]
-            head_tilt = math.degrees(math.atan(dx / abs(nose[1] - shoulder_center[1])))
-            results["頭の傾き"] = f"{head_tilt:.1f}°"
-        
-        # 肩の傾き（シンプルな高低差ベース）
-        shoulder_diff = left_shoulder[1] - right_shoulder[1]  # Y座標の差
+        # 肩の傾き（患者の左右）
+        shoulder_diff = left_shoulder[1] - right_shoulder[1]
         shoulder_angle = math.degrees(math.atan(shoulder_diff / abs(left_shoulder[0] - right_shoulder[0])))
-            
-        results["肩の傾き"] = f"{abs(shoulder_angle):.1f}° ({direction})"
         
-        # 骨盤の傾き
-        hip_diff = left_hip[1] - right_hip[1]  # Y座標の差
-        hip_angle = math.degrees(math.atan(hip_diff / abs(left_hip[0] - right_hip[0])))
+        if shoulder_diff > 0:
+            shoulder_direction = "左"  # 患者の左肩が下
+        elif shoulder_diff < 0:
+            shoulder_direction = "右"  # 患者の右肩が下
+        else:
+            shoulder_direction = "水平"
             
-        results["骨盤の傾き"] = f"{abs(hip_angle):.1f}° ({direction})"
+        results["肩の傾き"] = f"{shoulder_direction}{abs(shoulder_angle):.1f}°"
+        
+        # 骨盤の傾き（患者の左右）
+        hip_diff = left_hip[1] - right_hip[1]
+        hip_angle = math.degrees(math.atan(hip_diff / abs(left_hip[0] - right_hip[0])))
+        
+        if hip_diff > 0:
+            hip_direction = "左"  # 患者の左腰が下
+        elif hip_diff < 0:
+            hip_direction = "右"  # 患者の右腰が下
+        else:
+            hip_direction = "水平"
+            
+        results["骨盤の傾き"] = f"{hip_direction}{abs(hip_angle):.1f}°"
         
         return results
         
     except Exception as e:
         return {"エラー": f"正面姿勢分析エラー: {str(e)}"}
+
 
 def analyze_side_posture(keypoints):
     """横向き姿勢の分析"""
@@ -200,7 +197,7 @@ def analyze_side_posture(keypoints):
                 extension_angle = inner_angle  # 伸展角度
                 flexion_angle = 180 - inner_angle  # 屈曲角度
                 
-                results["膝の角度"] = f"{extension_angle:.1f}° (屈曲 {flexion_angle:.1f}°)"
+                results["膝屈曲"] = f"{flexion_angle:.1f}°"
         
         # 骨盤の前後傾（簡易版：腰と膝の関係から推定）
         if (max(kpts[11][2], kpts[12][2]) > 0.5 and 
@@ -343,7 +340,7 @@ with tab1:
             st.image(processed_img, use_container_width=True)
             
             # 姿勢分析
-            st.subheader("詳細分析")
+            #st.subheader()
             
             keypoints_data = results.keypoints.data.cpu().numpy()
             
