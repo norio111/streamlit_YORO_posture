@@ -422,7 +422,6 @@ with tab1:
         """)
 
 def readme_tab_components():
-    st.info("このアプリケーションは機械学習モデル**YOLO（You Only Look Once）**を用いて姿勢を推定し、結果を表示します。")
     
     st.subheader("【使い方】")
     st.markdown("""
