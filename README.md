@@ -6,7 +6,7 @@
 ---
 
 ## デモ
-👉 [Streamlit Cloud で開く](https://yoro-posture111.streamlit.app)
+👉 [Streamlit Cloud で開く](https://yoro-posture.streamlit.app/)
 
 ---
 
